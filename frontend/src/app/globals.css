@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   "Editorial interrogation" — design tokens, single source of truth.
+   Two poles: warm PAPER and near-black INK. ONE calm accent — a deep PINE
+   GREEN — ties every surface together, used sparingly (primary button, active
+   states, links, the thinking cue, key data). On the ink runner the accent
+   shifts to a lighter sage sibling so it stays legible on a dark field.
+
+   TEXT HIERARCHY (three tiers, all AA on their background):
+     ink-primary   → near-black, headlines + strong body
+     ink-secondary → readable muted, most body + descriptions
+     ink-tertiary  → minor metadata/labels, still comfortably legible
+   No text token falls below AA. No raw hex belongs in components.
+   ========================================================================== */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-positive: var(--positive);
+  --color-warn: var(--warn);
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-hanken), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --radius-card: 0.625rem;
+  --radius-pill: 999px;
+
+  /* Restrained, directional depth — no glow. */
+  --shadow-soft: 0 1px 2px rgb(14 14 16 / 0.05), 0 12px 30px -18px rgb(14 14 16 / 0.22);
+  --shadow-lift: 0 2px 6px rgb(14 14 16 / 0.07), 0 32px 60px -32px rgb(14 14 16 / 0.34);
+  --shadow-glow: 0 0 0 1px var(--line), 0 10px 28px -14px rgb(14 14 16 / 0.22);
+}
+
+/* --- PAPER / editorial (landing, report, dashboards) -------------------- */
+:root {
+  /* Ink hierarchy */
+  --ink-primary: #15140f; /* ~15:1 on paper */
+  --ink-secondary: #4e4b44; /* ~7.4:1 on paper */
+  --ink-tertiary: #5e5a51; /* ~6.3:1 on paper */
+
+  --bg: #f4f1ea;
+  --surface: #ece7db;
+  --raised: #fbf9f4;
+  --fg: var(--ink-primary);
+  --muted: var(--ink-secondary);
+  --faint: var(--ink-tertiary);
+  --line: #d3ccbc;
+
+  --accent: #2f5d50; /* deep pine — ~6.6:1 on paper */
+  --accent-soft: rgb(47 93 80 / 0.12);
+  --accent-contrast: #faf8f3; /* warm white text on the accent fill */
+
+  --positive: #2f5d50; /* held up — the pine accent */
+  --warn: #ae3318; /* cracked — signal red, AA on paper and on cards */
+}
+
+/* --- INK / spotlight (the live runner) --------------------------------- */
+[data-theme="runner"] {
+  --ink-primary: #f4f1ea;
+  --ink-secondary: #b2ada0; /* ~8.4:1 on ink */
+  --ink-tertiary: #948f80; /* ~5.8:1 on ink */
+
+  --bg: #0e0e10;
+  --surface: #161618;
+  --raised: #1c1c20;
+  --fg: var(--ink-primary);
+  --muted: var(--ink-secondary);
+  --faint: var(--ink-tertiary);
+  --line: #2a2a2e;
+
+  --accent: #79a892; /* lighter sage — ~7:1 on ink */
+  --accent-soft: rgb(121 168 146 / 0.14);
+  --accent-contrast: #0e0e10; /* ink text on the sage fill */
+
+  --positive: #79a892;
+  --warn: #ff8a6b; /* calm coral, ~7:1 on ink */
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+}
+
+/* The runner's lit room: a faint accent pool behind the question, deepening to
+   ink at the edges. Calm — no neon, no harsh glow. */
+.runner-surface {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      90% 60% at 50% 8%,
+      color-mix(in oklab, var(--accent) 8%, transparent),
+      transparent 60%
+    ),
+    var(--bg);
+}
+
+/* Film grain — a printed tooth on both poles, stronger on ink. */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+[data-theme="runner"] .grain::before {
+  opacity: 0.08;
+}
+
+/* Editorial hairline divider with faded ends. */
+.rule {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--line) 10%,
+    var(--line) 90%,
+    transparent
+  );
+}
+
+/* Small accent marker before mono kickers — keeps the accent present without
+   leaning on colored text where it isn't wanted. */
+.kicker-dot::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.55rem;
+  vertical-align: 0.05em;
+  background: var(--accent);
+}
+
+/* Highlighted word in editorial headlines: paper text on an accent swash. */
+.mark {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  padding: 0 0.18em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* AI Speaking Card Glow Animation */
+@keyframes aiSpeakingGlow {
+  0% {
+    box-shadow: 0 0 8px 1px color-mix(in oklab, var(--accent) 20%, transparent), 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
+  }
+  50% {
+    box-shadow: 0 0 20px 4px color-mix(in oklab, var(--accent) 45%, transparent), 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    border-color: var(--accent);
+  }
+  100% {
+    box-shadow: 0 0 8px 1px color-mix(in oklab, var(--accent) 20%, transparent), 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
+  }
+}
+
+.ai-speaking-card {
+  animation: aiSpeakingGlow 2.2s infinite ease-in-out;
+}
