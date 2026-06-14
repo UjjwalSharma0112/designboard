@@ -13,6 +13,8 @@ import {
   FileText,
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
+import ReportView from "@/features/report/components/ReportView";
+import type { Report } from "@/features/report/types";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -95,14 +97,73 @@ const BEATS = [
     desc: "Leave with scored systems engineering competencies and an honest read on where your design cracked.",
   },
 ];
-
-const COMPETENCIES = [
-  { name: "System Scalability", score: 3.5 },
-  { name: "Storage & Cache Selection", score: 3.0 },
-  { name: "Data Flow & Protocols", score: 3.2 },
-  { name: "Reliability & Replication", score: 3.4 },
-  { name: "Trade-off Justification", score: 2.8 },
-];
+const MOCK_REPORT: Report = {
+  overallScore: 7.2,
+  totalQuestions: 4,
+  perQuestion: [
+    {
+      questionIndex: 0,
+      question: "How would you design the database layer for a URL shortener?",
+      score: 8.5,
+      followUpCount: 1,
+      strengths: [
+        "Correctly identified that writes are the primary bottleneck",
+        "Chosen database engine aligns well with schema simplicity"
+      ],
+      gaps: [
+        "Did not immediately account for index size growth"
+      ]
+    },
+    {
+      questionIndex: 1,
+      question: "What happens under a sudden write spike of 100k requests/sec?",
+      score: 6.0,
+      followUpCount: 2,
+      strengths: [
+        "Understood the need to buffer incoming writes asynchronously"
+      ],
+      gaps: [
+        "Initially proposed a cache (Redis) which does not absorb write spikes",
+        "Failed to explain consumer offset committing strategy in Kafka"
+      ]
+    },
+    {
+      questionIndex: 2,
+      question: "How do you handle database write replication and consistency?",
+      score: 7.5,
+      followUpCount: 1,
+      strengths: [
+        "Correctly applied the CAP theorem to justify eventual consistency"
+      ],
+      gaps: [
+        "Vague on conflict resolution strategies when multiple nodes receive writes"
+      ]
+    },
+    {
+      questionIndex: 3,
+      question: "How would you prevent duplicate short code generation?",
+      score: 6.8,
+      followUpCount: 2,
+      strengths: [
+        "Proposed a range partition server approach to distribute IDs"
+      ],
+      gaps: [
+        "Did not discuss single-point-of-failure mitigation for the coordinator"
+      ]
+    }
+  ],
+  summary: "A promising design with strong database fundamentals, but cracked under high-throughput write scaling and replication edge cases.",
+  strengths: [
+    "Solid understanding of relational database indexes and constraints",
+    "Good application of message queuing for asynchronous write buffering",
+    "Proper application of trade-offs regarding SQL scaling limitations"
+  ],
+  improvements: [
+    "Address write buffering mechanisms precisely rather than assuming caches absorb writes",
+    "Study distributed consensus and split-brain scenarios in coordinator nodes",
+    "Deepen knowledge of database replication lag and stale reads"
+  ]
+};
 
 // --- page ------------------------------------------------------------------
 
@@ -132,7 +193,7 @@ function Hero() {
         animate="show"
         className="font-mono text-xs uppercase tracking-[0.24em] text-accent"
       >
-        The System Design Playground & Room
+        The designboard Playground
       </motion.p>
       <motion.h1
         custom={1}
@@ -278,93 +339,10 @@ function ReportPreview() {
           title="An honest read, not a participation trophy."
         />
         <Reveal delay={0.05} className="mt-10">
-          <div className="overflow-hidden rounded-card border border-line bg-surface shadow-soft">
-            {/* Artifact header */}
-            <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-6 py-5">
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-                System Design Report · Infrastructure Architect
-              </span>
-              <span className="font-mono text-3xl font-semibold leading-none text-fg">
-                3.2<span className="text-lg text-faint">/5</span>
-              </span>
-            </div>
-
-            <div className="grid gap-8 px-6 py-7 lg:grid-cols-[1.1fr_1fr]">
-              {/* Competency bars */}
-              <ul className="space-y-3.5">
-                {COMPETENCIES.map((c) => (
-                  <li key={c.name} className="flex items-center gap-4">
-                    <span className="w-44 shrink-0 text-sm text-muted">
-                      {c.name}
-                    </span>
-                    <span className="h-2 flex-1 overflow-hidden rounded-pill bg-line">
-                      <span
-                        className="block h-full rounded-pill bg-accent"
-                        style={{ width: `${(c.score / 5) * 100}%` }}
-                      />
-                    </span>
-                    <span className="w-8 text-right font-mono text-sm text-fg">
-                      {c.score.toFixed(1)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Held up vs cracked */}
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 lg:gap-4">
-                <Highlight
-                  tone="positive"
-                  title="Held up"
-                  items={[
-                    "Correctly identified write bottlenecks",
-                    "Well-reasoned SQL vs NoSQL choices",
-                  ]}
-                />
-                <Highlight
-                  tone="warn"
-                  title="Cracked under follow-ups"
-                  items={[
-                    "Failed to address cache replication lag",
-                    "Vague explanation of message queue offsets",
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
+          <ReportView report={MOCK_REPORT} />
         </Reveal>
       </div>
     </section>
-  );
-}
-
-function Highlight({
-  tone,
-  title,
-  items,
-}: {
-  tone: "positive" | "warn";
-  title: string;
-  items: string[];
-}) {
-  const color = tone === "positive" ? "var(--positive)" : "var(--warn)";
-  return (
-    <div>
-      <h4 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-        <span
-          className="h-2 w-2 rounded-full"
-          style={{ background: color }}
-          aria-hidden
-        />
-        {title}
-      </h4>
-      <ul className="mt-2.5 space-y-1.5">
-        {items.map((item) => (
-          <li key={item} className="text-sm leading-snug text-fg">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -403,10 +381,10 @@ function ClosingCta() {
 function SiteFooter() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto grid w-full max-w-5xl gap-8 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="mx-auto grid w-full max-w-5xl gap-8 px-6 py-12 sm:grid-cols-[1.8fr_1fr]">
         <div>
           <p className="font-display text-lg font-semibold tracking-tight text-fg">
-            System Design Room
+            designboard
           </p>
           <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">
             Draw architectures, defend your design choices, and receive detailed AI reports.
@@ -420,18 +398,10 @@ function SiteFooter() {
             { href: "/history", label: "My Designs" },
           ]}
         />
-        <FooterCol
-          heading="Company"
-          links={[
-            { href: "#", label: "About" },
-            { href: "#", label: "Privacy" },
-            { href: "#", label: "Terms" },
-          ]}
-        />
       </div>
       <div className="mx-auto w-full max-w-5xl px-6 pb-10">
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">
-          © 2026 System Design Room · A calm place to master architecture interviews
+          © 2026 designboard · A calm place to master architecture interviews
         </p>
       </div>
     </footer>

@@ -29,7 +29,7 @@ export default function SiteHeader({ active }: { active?: string }) {
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-6">
       <Link href="/" className="group flex items-baseline gap-2">
         <span className="font-display text-xl font-semibold tracking-tight text-fg">
-          Interview Room
+          designboard
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
           beta

@@ -27,7 +27,7 @@ export default function AuthShell({
           href="/"
           className="flex items-baseline gap-2 font-display text-xl font-semibold tracking-tight text-fg"
         >
-          Interview Room
+          designboard
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
             beta
           </span>
@@ -58,7 +58,7 @@ export default function AuthShell({
             href="/"
             className="mb-10 inline-flex items-baseline gap-2 font-display text-lg font-semibold tracking-tight text-fg lg:hidden"
           >
-            Interview Room
+            designboard
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
               beta
             </span>

@@ -1,4 +1,4 @@
-# Interview Room
+# designboard
 
 An adaptive mock-interview web app. A candidate takes a live interview that
 adapts its questions and difficulty to their answers, then receives an honest,

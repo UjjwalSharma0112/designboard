@@ -31,7 +31,7 @@ export default function PracticePage() {
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Leave room
         </Link>
-        <span className="font-display text-sm text-muted">System Design Room</span>
+        <span className="font-display text-sm text-muted">designboard</span>
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-5 sm:px-6">

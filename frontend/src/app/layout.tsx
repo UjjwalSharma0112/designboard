@@ -25,7 +25,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI System Design Interview Room",
+  title: "designboard",
   description:
     "An interactive system design playground and mock-interview room. Draw architectures, defend your design against AI review, and get detailed feedback.",
 };
