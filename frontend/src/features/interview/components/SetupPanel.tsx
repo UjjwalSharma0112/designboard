@@ -41,6 +41,13 @@ export const SYSTEM_DESIGN_QUESTIONS: SystemDesignQuestion[] = [
     description: "Design a system that generates a short, unique alias for a long URL and redirects users to the original URL when accessed."
   },
   {
+    id: "notification-service",
+    title: "Design a Notification System",
+    difficulty: "easy",
+    tags: ["Message Queue", "Pub/Sub", "Third-party APIs", "Retry Logic"],
+    description: "Design a scalable service to send real-time alerts, emails, push notifications, and SMS messages to users."
+  },
+  {
     id: "rate-limiter",
     title: "Design an API Rate Limiter",
     difficulty: "medium",
@@ -53,6 +60,13 @@ export const SYSTEM_DESIGN_QUESTIONS: SystemDesignQuestion[] = [
     difficulty: "medium",
     tags: ["WebSockets", "Pub/Sub", "Message Queue", "Presence Service"],
     description: "Design a real-time instant messaging service supporting one-on-one and group messaging, file transfer, and active/idle presence status."
+  },
+  {
+    id: "web-crawler",
+    title: "Design a Web Crawler",
+    difficulty: "medium",
+    tags: ["Distributed Queue", "DNS Resolver", "Duplicate Elimination", "Storage"],
+    description: "Design a distributed system that crawls the web, parses HTML pages, and stores extracted content for a search engine index."
   },
   {
     id: "netflix",
@@ -74,20 +88,6 @@ export const SYSTEM_DESIGN_QUESTIONS: SystemDesignQuestion[] = [
     difficulty: "hard",
     tags: ["LRU", "Consistent Hashing", "Replication", "In-Memory"],
     description: "Design a high-performance, distributed key-value storage system like Redis or Memcached with replication and partition tolerance."
-  },
-  {
-    id: "notification-service",
-    title: "Design a Notification System",
-    difficulty: "easy",
-    tags: ["Message Queue", "Pub/Sub", "Third-party APIs", "Retry Logic"],
-    description: "Design a scalable service to send real-time alerts, emails, push notifications, and SMS messages to users."
-  },
-  {
-    id: "web-crawler",
-    title: "Design a Web Crawler",
-    difficulty: "medium",
-    tags: ["Distributed Queue", "DNS Resolver", "Duplicate Elimination", "Storage"],
-    description: "Design a distributed system that crawls the web, parses HTML pages, and stores extracted content for a search engine index."
   }
 ];
 

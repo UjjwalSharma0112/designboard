@@ -66,9 +66,9 @@ export default function InterviewRunner() {
   const [isTtsEnabled, setIsTtsEnabled] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("interview_room.tts_enabled");
-      return saved !== "false";
+      return saved === "true";
     }
-    return true;
+    return false;
   });
 
   const handleToggleTts = (enabled: boolean) => {
