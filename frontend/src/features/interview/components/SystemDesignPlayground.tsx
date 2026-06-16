@@ -47,7 +47,7 @@ export default function SystemDesignPlayground({
   // SVG Canvas states
   const [nodes, setNodes] = useState<NodeData[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`playground_diagram_${question.id}`);
+      const saved = sessionStorage.getItem(`playground_diagram_${question.id}`);
       if (saved) {
         try {
           const { nodes: savedNodes } = JSON.parse(saved);
@@ -64,7 +64,7 @@ export default function SystemDesignPlayground({
 
   const [edges, setEdges] = useState<EdgeData[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`playground_diagram_${question.id}`);
+      const saved = sessionStorage.getItem(`playground_diagram_${question.id}`);
       if (saved) {
         try {
           const { edges: savedEdges } = JSON.parse(saved);
@@ -138,33 +138,30 @@ export default function SystemDesignPlayground({
 
   // Refs for tracking interactive states inside mouse/keyboard listener closures
   const selectedNodeIdsRef = useRef(selectedNodeIds);
-  selectedNodeIdsRef.current = selectedNodeIds;
-
   const panStartRef = useRef(panStart);
-  panStartRef.current = panStart;
-
   const dragOffsetRef = useRef(dragOffset);
-  dragOffsetRef.current = dragOffset;
-
   const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
-
   const panOffsetRef = useRef(panOffset);
-  panOffsetRef.current = panOffset;
-
   const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-
   const selectionStartRef = useRef(selectionStart);
-  selectionStartRef.current = selectionStart;
-
   const draggingNodesStartRef = useRef(draggingNodesStart);
-  draggingNodesStartRef.current = draggingNodesStart;
 
-  // Save nodes and edges to localStorage
+  // Sync refs after render to avoid ESLint rule violations
+  useEffect(() => {
+    selectedNodeIdsRef.current = selectedNodeIds;
+    panStartRef.current = panStart;
+    dragOffsetRef.current = dragOffset;
+    zoomRef.current = zoom;
+    panOffsetRef.current = panOffset;
+    nodesRef.current = nodes;
+    selectionStartRef.current = selectionStart;
+    draggingNodesStartRef.current = draggingNodesStart;
+  });
+
+  // Save nodes and edges to sessionStorage
   useEffect(() => {
     if (nodes.length > 0 || edges.length > 0) {
-      localStorage.setItem(
+      sessionStorage.setItem(
         `playground_diagram_${question.id}`,
         JSON.stringify({ nodes, edges }),
       );
@@ -541,6 +538,7 @@ export default function SystemDesignPlayground({
       setEdgeStartNodeId(null);
       setPanOffset({ x: 0, y: 0 });
       setZoom(1.0);
+      sessionStorage.removeItem(`playground_diagram_${question.id}`);
       localStorage.removeItem(`playground_diagram_${question.id}`);
     }
   }, [question.id]);
@@ -753,7 +751,7 @@ export default function SystemDesignPlayground({
   }, [onSubmit, getJSON]);
 
   return (
-    <div className="flex flex-col h-162.5 w-full rounded-card border border-line bg-surface/30 backdrop-blur overflow-hidden shadow-soft select-none text-fg">
+    <div className="flex flex-col h-[calc(100vh-130px)] min-h-[600px] w-full rounded-card border border-line bg-surface/30 backdrop-blur overflow-hidden shadow-soft select-none text-fg">
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0 bg-surface/50">
         <div className="flex flex-col min-w-0 pr-8 text-left">
@@ -829,13 +827,23 @@ export default function SystemDesignPlayground({
           <defs>
             <marker
               id="arrow"
-              markerWidth="8"
-              markerHeight="8"
-              refX="6"
-              refY="3"
+              markerWidth="10"
+              markerHeight="10"
+              refX="8"
+              refY="5"
               orient="auto"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="#888" />
+              <path d="M2,2 L8,5 L2,8 L3.5,5 z" fill="var(--line)" />
+            </marker>
+            <marker
+              id="arrow-hover"
+              markerWidth="10"
+              markerHeight="10"
+              refX="8"
+              refY="5"
+              orient="auto"
+            >
+              <path d="M2,2 L8,5 L2,8 L3.5,5 z" fill="var(--accent)" />
             </marker>
             <pattern
               id="canvas-grid"
@@ -865,7 +873,6 @@ export default function SystemDesignPlayground({
                 <EdgeElement
                   key={idx}
                   edge={edge}
-                  idx={idx}
                   nodes={nodes}
                   edges={edges}
                   handleEdgeDoubleClick={handleEdgeDoubleClick}

@@ -52,15 +52,15 @@ export default function NodeElement({
       onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
     >
       <rect
-        className={`node-rect transition-all ${
+        className={`node-rect transition-[stroke,stroke-width,fill] duration-200 ${
           isSelected ? "selected stroke-2" : "stroke-1"
-        }`}
+        } ${isEdgeStart ? "edge-start-node" : ""}`}
         width={node.w}
         height={node.h}
         rx={6}
         fill={comp.color}
-        stroke={isSelected || isEdgeStart ? "#ffffff" : comp.color}
-        strokeWidth={isSelected || isEdgeStart ? 2 : 1}
+        stroke={isSelected ? "#ffffff" : isEdgeStart ? "var(--accent)" : comp.color}
+        strokeWidth={isSelected ? 2 : isEdgeStart ? 2.5 : 1}
       />
 
       {isEditing ? (

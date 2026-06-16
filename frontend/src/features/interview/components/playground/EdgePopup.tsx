@@ -33,9 +33,32 @@ export default function EdgePopup({
         top: `${popupPosition.y}px`,
       }}
     >
+      <div className="flex flex-col gap-1 border-t border-line/40 pt-2.5">
+        <label className="text-[9px] text-faint tracking-wider uppercase font-bold">
+          1. connection details / purpose (required)
+        </label>
+        <input
+          value={edgeTag}
+          onChange={(e) => setEdgeTag(e.target.value)}
+          className="w-full text-xs font-mono p-1.5 rounded-card border border-line bg-bg text-fg outline-none focus:border-accent"
+          placeholder="e.g. async replication, read requests..."
+          autoComplete="off"
+        />
+        <div className="flex flex-wrap gap-1 mt-1.5 max-w-[230px]">
+          {EDGE_TAG_SUGGESTIONS.map((s) => (
+            <span
+              key={s}
+              onClick={() => setEdgeTag(s)}
+              className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-line text-muted bg-surface hover:border-accent hover:text-accent cursor-pointer transition-all"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      </div>
       <div className="flex flex-col gap-1">
         <label className="text-[9px] text-faint tracking-wider uppercase font-bold">
-          1. protocol / descriptor (optional)
+          2. protocol / descriptor (optional)
         </label>
         <input
           value={edgeDescriptor}
@@ -50,30 +73,6 @@ export default function EdgePopup({
             <span
               key={s}
               onClick={() => setEdgeDescriptor(s)}
-              className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-line text-muted bg-surface hover:border-accent hover:text-accent cursor-pointer transition-all"
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1 border-t border-line/40 pt-2.5">
-        <label className="text-[9px] text-faint tracking-wider uppercase font-bold">
-          2. connection details / purpose (required)
-        </label>
-        <input
-          value={edgeTag}
-          onChange={(e) => setEdgeTag(e.target.value)}
-          className="w-full text-xs font-mono p-1.5 rounded-card border border-line bg-bg text-fg outline-none focus:border-accent"
-          placeholder="e.g. async replication, read requests..."
-          autoComplete="off"
-        />
-        <div className="flex flex-wrap gap-1 mt-1.5 max-w-[230px]">
-          {EDGE_TAG_SUGGESTIONS.map((s) => (
-            <span
-              key={s}
-              onClick={() => setEdgeTag(s)}
               className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-line text-muted bg-surface hover:border-accent hover:text-accent cursor-pointer transition-all"
             >
               {s}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { NodeData } from "./NodeElement";
 
 export interface EdgeData {
@@ -10,7 +10,6 @@ export interface EdgeData {
 
 interface EdgeElementProps {
   edge: EdgeData;
-  idx: number;
   nodes: NodeData[];
   edges: EdgeData[];
   handleEdgeDoubleClick: (e: React.MouseEvent, edge: EdgeData) => void;
@@ -18,11 +17,11 @@ interface EdgeElementProps {
 
 export default function EdgeElement({
   edge,
-  idx,
   nodes,
   edges,
   handleEdgeDoubleClick,
 }: EdgeElementProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const fromNode = nodes.find((n) => n.id === edge.from);
   const toNode = nodes.find((n) => n.id === edge.to);
   if (!fromNode || !toNode) return null;
@@ -35,9 +34,6 @@ export default function EdgeElement({
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
-
-  const ex2 = x2 - (dx / len) * 64;
-  const ey2 = y2 - (dy / len) * 26;
 
   // Find all sibling edges between these two nodes (in either direction)
   const siblingEdges = edges.filter(
@@ -66,21 +62,43 @@ export default function EdgeElement({
   const nx = -ndy / nlen;
   const ny = ndx / nlen;
 
+  // Calculate port offset to separate start (source) and end (sink) connection points on node borders
+  let portOffset = 0;
+  if (siblingEdges.length > 1) {
+    const portStep = 10; // spacing between ports
+    const totalPortWidth = (siblingEdges.length - 1) * portStep;
+    portOffset = -totalPortWidth / 2 + siblingIndex * portStep;
+  }
+
+  // Calculate start (sx1, sy1) and end (ex2, ey2) points offset 8px outside node borders with port offset
+  const sx1 = x1 + (dx / len) * (fromNode.w / 2 + 8) + nx * portOffset;
+  const sy1 = y1 + (dy / len) * (fromNode.h / 2 + 8) + ny * portOffset;
+  const ex2 = x2 - (dx / len) * (toNode.w / 2 + 8) + nx * portOffset;
+  const ey2 = y2 - (dy / len) * (toNode.h / 2 + 8) + ny * portOffset;
+
   // Determine curve distance offset
   let dist = 0;
   if (siblingEdges.length > 1) {
-    const step = 40; // spacing between curves
+    const step = 60; // spacing between curves (increased from 40)
     const totalWidth = (siblingEdges.length - 1) * step;
     dist = -totalWidth / 2 + siblingIndex * step;
   }
 
-  // Control point for the curve
-  const cx = mx + nx * dist;
-  const cy = my + ny * dist;
+  // Control point for the curve, incorporating portOffset to maintain parallel curves
+  const cx = mx + nx * (dist + portOffset);
+  const cy = my + ny * (dist + portOffset);
 
-  // Center of the curved label (peak of the curve)
-  const lx = (mx + cx) / 2;
-  const ly = (my + cy) / 2;
+  // Determine parameter t along the curve to stagger labels (defaulting closer to the source node)
+  let t = 0.25;
+  if (siblingEdges.length > 1) {
+    const n = siblingEdges.length;
+    t = 0.2 + (siblingIndex / (n - 1)) * 0.2;
+  }
+
+  // Exact coordinates on the quadratic Bezier curve at parameter t
+  const mt = 1 - t;
+  const lx = mt * mt * sx1 + 2 * mt * t * cx + t * t * ex2;
+  const ly = mt * mt * sy1 + 2 * mt * t * cy + t * t * ey2;
 
   const labelText = edge.tag
     ? `${edge.descriptor} [${edge.tag}]`
@@ -92,40 +110,49 @@ export default function EdgeElement({
     <g
       className="edge-group cursor-pointer group"
       onDoubleClick={(e) => handleEdgeDoubleClick(e, edge)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Hit Target Path (wide invisible stroke for easier interaction) */}
       <path
-        d={`M ${x1} ${y1} Q ${cx} ${cy} ${ex2} ${ey2}`}
+        d={`M ${sx1} ${sy1} Q ${cx} ${cy} ${ex2} ${ey2}`}
         stroke="transparent"
-        strokeWidth={10}
+        strokeWidth={12}
         fill="none"
       />
+      {/* Main Connection Line */}
       <path
-        className="edge-line stroke-line group-hover:stroke-accent transition-colors"
-        d={`M ${x1} ${y1} Q ${cx} ${cy} ${ex2} ${ey2}`}
-        stroke="var(--line)"
-        strokeWidth={1.5}
+        className="edge-line stroke-line transition-[stroke,stroke-width] duration-200"
+        d={`M ${sx1} ${sy1} Q ${cx} ${cy} ${ex2} ${ey2}`}
+        stroke={isHovered ? "var(--accent)" : "var(--line)"}
+        strokeWidth={isHovered ? 2 : 1.5}
         fill="none"
-        markerEnd="url(#arrow)"
-        style={{ stroke: "var(--line)" }}
+        markerEnd={isHovered ? "url(#arrow-hover)" : "url(#arrow)"}
       />
       {labelText && (
-        <g className="transition-transform group-hover:scale-[1.03] origin-center">
+        <g
+          className="transition-transform origin-center"
+          style={{
+            transform: isHovered ? "scale(1.03)" : "scale(1)",
+            transition: "transform 0.2s ease",
+          }}
+        >
           <rect
             x={lx - tw / 2}
             y={ly - 10}
             width={tw}
             height={17}
             fill="var(--raised)"
-            stroke="var(--line)"
-            className="group-hover:stroke-accent transition-colors"
+            stroke={isHovered ? "var(--accent)" : "var(--line)"}
+            className="transition-colors duration-200"
             strokeWidth={0.5}
             rx={3}
           />
           <text
             x={lx}
             y={ly + 2}
-            fill="var(--muted)"
-            className="group-hover:fill-fg transition-colors"
+            fill={isHovered ? "var(--fg)" : "var(--muted)"}
+            className="transition-colors duration-200"
             fontSize={9}
             fontFamily="monospace"
             textAnchor="middle"

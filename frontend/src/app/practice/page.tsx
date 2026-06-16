@@ -16,13 +16,35 @@ export default function PracticePage() {
     e.preventDefault();
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("interview_room.active_session_id");
+      sessionStorage.removeItem("system_design_playground.selected_question");
+      
+      // Clean sessionStorage diagram entries
+      const sessionKeys: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("playground_diagram_")) {
+          sessionKeys.push(key);
+        }
+      }
+      sessionKeys.forEach(k => sessionStorage.removeItem(k));
+
+      // Clean localStorage diagram entries
+      localStorage.removeItem("system_design_playground.selected_question");
+      const localKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("playground_diagram_")) {
+          localKeys.push(key);
+        }
+      }
+      localKeys.forEach(k => localStorage.removeItem(k));
     }
     router.push("/");
   };
 
   return (
     <div className="runner-surface grain relative flex min-h-screen flex-col">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-6">
+      <header className="mx-auto flex w-full max-w-none px-6 md:px-10 py-5 items-center justify-between">
         <Link
           href="/"
           onClick={handleLeaveRoom}
@@ -34,7 +56,7 @@ export default function PracticePage() {
         <span className="font-display text-sm text-muted">designboard</span>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-5 sm:px-6">
+      <main className="mx-auto w-full max-w-none px-6 md:px-10 flex-1 flex flex-col pb-6">
         <RequireAuth>
           <InterviewRunner />
         </RequireAuth>

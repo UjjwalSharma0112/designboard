@@ -205,3 +205,20 @@
 .ai-speaking-card {
   animation: aiSpeakingGlow 2.2s infinite ease-in-out;
 }
+
+/* --- PLAYGROUND FLOW & CONNECTION IMPROVEMENTS ------------------------- */
+@keyframes pulse-accent {
+  0%, 100% {
+    stroke-width: 2.2px;
+    stroke: var(--accent);
+  }
+  50% {
+    stroke-width: 3.8px;
+    stroke: var(--accent);
+  }
+}
+
+.edge-start-node {
+  animation: pulse-accent 1.6s infinite ease-in-out;
+}
+

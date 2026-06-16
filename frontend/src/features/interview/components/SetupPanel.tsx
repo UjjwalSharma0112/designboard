@@ -104,7 +104,7 @@ export default function SetupPanel({
 }: SetupPanelProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<SystemDesignQuestion | null>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("system_design_playground.selected_question");
+      const saved = sessionStorage.getItem("system_design_playground.selected_question");
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -120,9 +120,9 @@ export default function SetupPanel({
     setSelectedQuestion(q);
     if (typeof window !== "undefined") {
       if (q) {
-        localStorage.setItem("system_design_playground.selected_question", JSON.stringify(q));
+        sessionStorage.setItem("system_design_playground.selected_question", JSON.stringify(q));
       } else {
-        localStorage.removeItem("system_design_playground.selected_question");
+        sessionStorage.removeItem("system_design_playground.selected_question");
       }
     }
   };
@@ -130,7 +130,9 @@ export default function SetupPanel({
   const handleSubmitPlayground = (diagramData: { nodes: ExportedNode[]; edges: ExportedEdge[] }) => {
     if (!selectedQuestion) return;
 
-    // Clean localStorage state upon starting the interview
+    // Clean session and local storage draft state upon starting the interview
+    sessionStorage.removeItem("system_design_playground.selected_question");
+    sessionStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
     localStorage.removeItem("system_design_playground.selected_question");
     localStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
 
@@ -154,7 +156,13 @@ export default function SetupPanel({
     return (
       <SystemDesignPlayground
         question={selectedQuestion}
-        onBack={() => handleSelectQuestion(null)}
+        onBack={() => {
+          if (selectedQuestion) {
+            sessionStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
+            localStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
+          }
+          handleSelectQuestion(null);
+        }}
         onSubmit={handleSubmitPlayground}
       />
     );
@@ -164,7 +172,7 @@ export default function SetupPanel({
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-4xl"
+      className="w-full max-w-4xl self-center my-auto"
     >
       <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>

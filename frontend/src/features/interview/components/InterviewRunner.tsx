@@ -415,7 +415,7 @@ export default function InterviewRunner() {
 
   if (phase === "INTRO") {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center">
+      <div className="flex w-full flex-1 items-stretch justify-center">
         <SetupPanel 
           onStart={handleStart} 
           isTtsEnabled={isTtsEnabled}
