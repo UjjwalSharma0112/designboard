@@ -86,14 +86,14 @@ export default function SystemDesignPlayground({
     to: NodeData;
   } | null>(null);
 
-  // Viewport transforms (Pan/Zoom)
   const [zoom, setZoom] = useState(1.0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   // Interactive interaction states
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [draggingNodesStart, setDraggingNodesStart] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -531,16 +531,19 @@ export default function SystemDesignPlayground({
   }, []);
 
   const clearCanvas = useCallback(() => {
-    if (confirm("Clear all nodes and connections?")) {
-      setNodes([]);
-      setEdges([]);
-      setSelectedNodeIds([]);
-      setEdgeStartNodeId(null);
-      setPanOffset({ x: 0, y: 0 });
-      setZoom(1.0);
-      sessionStorage.removeItem(`playground_diagram_${question.id}`);
-      localStorage.removeItem(`playground_diagram_${question.id}`);
-    }
+    setShowClearConfirm(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeIds([]);
+    setEdgeStartNodeId(null);
+    setPanOffset({ x: 0, y: 0 });
+    setZoom(1.0);
+    sessionStorage.removeItem(`playground_diagram_${question.id}`);
+    localStorage.removeItem(`playground_diagram_${question.id}`);
+    setShowClearConfirm(false);
   }, [question.id]);
 
   // Listen for keyboard actions (Spacebar pan, Deletion, Mode shortcuts)
@@ -936,16 +939,51 @@ export default function SystemDesignPlayground({
         />
 
         {/* Edge Popup */}
-        <EdgePopup
-          popupPosition={popupPosition}
-          edgeDescriptor={edgeDescriptor}
-          setEdgeDescriptor={setEdgeDescriptor}
-          edgeTag={edgeTag}
-          setEdgeTag={setEdgeTag}
-          handleCancelEdge={handleCancelEdge}
-          handleConfirmEdge={handleConfirmEdge}
-          edgePopupRef={edgePopupRef}
-        />
+        {pendingEdge && popupPosition && (
+          <EdgePopup
+            popupPosition={popupPosition}
+            edgeDescriptor={edgeDescriptor}
+            setEdgeDescriptor={setEdgeDescriptor}
+            edgeTag={edgeTag}
+            setEdgeTag={setEdgeTag}
+            handleCancelEdge={handleCancelEdge}
+            handleConfirmEdge={handleConfirmEdge}
+            edgePopupRef={edgePopupRef}
+          />
+        )}
+
+        {/* Custom Clear Confirmation Modal */}
+        {showClearConfirm && (
+          <div className="absolute inset-0 bg-bg/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-xs bg-raised border border-line rounded-card p-5 shadow-lift text-center animate-in zoom-in-95 duration-200">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-warn font-bold block mb-1">
+                Warning
+              </span>
+              <h3 className="font-display text-md font-semibold text-fg">
+                Clear Playground?
+              </h3>
+              <p className="mt-2 text-[10px] text-muted leading-relaxed">
+                This will permanently delete all components and connection lines on the canvas.
+              </p>
+              <div className="mt-5 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 rounded-full border border-line py-1.5 text-[10px] font-mono uppercase tracking-wider font-bold text-muted bg-surface/30 hover:border-fg hover:text-fg transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmClear}
+                  className="flex-1 rounded-full bg-warn py-1.5 text-[10px] font-mono uppercase tracking-wider font-bold text-accent-contrast shadow-soft hover:opacity-90 transition-all cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Minimal Controls Guide (Bottom Right) */}
         <ControlsGuide />
