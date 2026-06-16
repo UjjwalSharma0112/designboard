@@ -5,6 +5,10 @@ interface ModeToolbarProps {
   setMode: (mode: "select" | "pan" | "edge") => void;
   setEdgeStartNodeId: (id: string | null) => void;
   clearCanvas: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
 }
 
 export default function ModeToolbar({
@@ -12,6 +16,10 @@ export default function ModeToolbar({
   setMode,
   setEdgeStartNodeId,
   clearCanvas,
+  canUndo,
+  canRedo,
+  undo,
+  redo,
 }: ModeToolbarProps) {
   return (
     <div className="absolute top-20 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-surface/95 backdrop-blur border border-line rounded-full px-2.5 py-1.5 shadow-lift z-20 select-none">
@@ -60,6 +68,31 @@ export default function ModeToolbar({
         className="px-3 py-1 rounded-full text-[10px] text-muted cursor-pointer font-mono hover:text-warn transition-all"
       >
         clear
+      </button>
+      <div className="w-[1px] h-4 bg-line mx-0.5" />
+      <button
+        onClick={undo}
+        disabled={!canUndo}
+        className={`px-3 py-1 rounded-full text-[10px] font-mono cursor-pointer transition-all ${
+          canUndo
+            ? "text-muted hover:text-fg"
+            : "text-faint cursor-not-allowed opacity-40"
+        }`}
+        title="Undo (Ctrl+Z)"
+      >
+        undo
+      </button>
+      <button
+        onClick={redo}
+        disabled={!canRedo}
+        className={`px-3 py-1 rounded-full text-[10px] font-mono cursor-pointer transition-all ${
+          canRedo
+            ? "text-muted hover:text-fg"
+            : "text-faint cursor-not-allowed opacity-40"
+        }`}
+        title="Redo (Ctrl+Y)"
+      >
+        redo
       </button>
     </div>
   );

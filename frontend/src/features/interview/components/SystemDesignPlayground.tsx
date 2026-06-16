@@ -7,7 +7,7 @@ import ModeToolbar from "./playground/ModeToolbar";
 import ZoomToolbar from "./playground/ZoomToolbar";
 import EdgePopup from "./playground/EdgePopup";
 import ControlsGuide from "./playground/ControlsGuide";
-import NodeElement, { NodeData } from "./playground/NodeElement";
+import NodeElement, { NodeData, wrapText } from "./playground/NodeElement";
 import EdgeElement, { EdgeData } from "./playground/EdgeElement";
 
 interface ExportedNode {
@@ -39,6 +39,32 @@ interface SystemDesignPlaygroundProps {
   onSubmit: (data: { nodes: ExportedNode[]; edges: ExportedEdge[] }) => void;
 }
 
+export function computeNodeDimensions(type: string, label: string, _tag?: string) {
+  const w = 130;
+  // Estimate word-wrapped lines for the label at a width of 130px
+  const charsPerLine = 17;
+  const words = label.split(/\s+/);
+  let linesCount = 1;
+  let currentLineLength = 0;
+
+  words.forEach((word) => {
+    if (word.length === 0) return;
+    if (currentLineLength === 0) {
+      currentLineLength = word.length;
+    } else if (currentLineLength + 1 + word.length <= charsPerLine) {
+      currentLineLength += 1 + word.length;
+    } else {
+      linesCount++;
+      currentLineLength = word.length;
+    }
+  });
+
+  // Calculate height dynamically based on label lines count
+  const isNote = type === "note";
+  const h = isNote ? Math.max(48, 16 + linesCount * 14) : Math.max(48, 28 + linesCount * 14);
+  return { w, h };
+}
+
 export default function SystemDesignPlayground({
   question,
   onBack,
@@ -52,7 +78,10 @@ export default function SystemDesignPlayground({
         try {
           const { nodes: savedNodes } = JSON.parse(saved);
           if (Array.isArray(savedNodes)) {
-            return savedNodes;
+            return savedNodes.map((n: Omit<NodeData, "w" | "h">) => {
+              const dims = computeNodeDimensions(n.type, n.label, n.tag);
+              return { ...n, w: dims.w, h: dims.h } as NodeData;
+            });
           }
         } catch {
           // ignore
@@ -115,6 +144,19 @@ export default function SystemDesignPlayground({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
+  // Undo/Redo History states
+  const [history, setHistory] = useState<{ nodes: NodeData[]; edges: EdgeData[] }[]>(() => [{ nodes, edges }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Resizing state
+  const [resizingNodeId, setResizingNodeId] = useState<string | null>(null);
+  const [resizingStartDims, setResizingStartDims] = useState<{
+    w: number;
+    h: number;
+    x: number;
+    y: number;
+  }>({ w: 0, h: 0, x: 0, y: 0 });
+
   // Edge editing popup position
   const [popupPosition, setPopupPosition] = useState<{
     x: number;
@@ -133,8 +175,13 @@ export default function SystemDesignPlayground({
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const edgePopupRef = useRef<HTMLDivElement>(null);
 
-  // Counter for unique node IDs
-  const nodeCounterRef = useRef(nodes.length);
+  // Counter for unique node IDs, computed as the maximum index parsed from existing node IDs
+  const nodeCounterRef = useRef(
+    nodes.reduce((max, node) => {
+      const num = parseInt(node.id.replace(/\D/g, ""), 10);
+      return isNaN(num) ? max : Math.max(max, num);
+    }, 0)
+  );
 
   // Refs for tracking interactive states inside mouse/keyboard listener closures
   const selectedNodeIdsRef = useRef(selectedNodeIds);
@@ -143,8 +190,52 @@ export default function SystemDesignPlayground({
   const zoomRef = useRef(zoom);
   const panOffsetRef = useRef(panOffset);
   const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
   const selectionStartRef = useRef(selectionStart);
   const draggingNodesStartRef = useRef(draggingNodesStart);
+  const resizingNodeIdRef = useRef(resizingNodeId);
+  const resizingStartDimsRef = useRef(resizingStartDims);
+  const historyRef = useRef(history);
+  const historyIndexRef = useRef(historyIndex);
+  const undoRef = useRef<() => void>(() => {});
+  const redoRef = useRef<() => void>(() => {});
+  const pushToHistoryRef = useRef<(nextNodes: NodeData[], nextEdges: EdgeData[]) => void>(() => {});
+  const draggingNodeIdRef = useRef(draggingNodeId);
+
+  const pushToHistory = (nextNodes: NodeData[], nextEdges: EdgeData[]) => {
+    setHistory((prev) => {
+      const nextHistory = prev.slice(0, historyIndexRef.current + 1);
+      nextHistory.push({ nodes: nextNodes, edges: nextEdges });
+      if (nextHistory.length > 50) {
+        nextHistory.shift();
+      }
+      return nextHistory;
+    });
+
+    const prevLength = historyRef.current.length;
+    const nextIndex = prevLength >= 50 ? 49 : historyIndexRef.current + 1;
+    setHistoryIndex(nextIndex);
+  };
+
+  const undo = () => {
+    if (historyIndexRef.current > 0) {
+      const prevIdx = historyIndexRef.current - 1;
+      const state = historyRef.current[prevIdx];
+      setNodes(state.nodes);
+      setEdges(state.edges);
+      setHistoryIndex(prevIdx);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      const nextIdx = historyIndexRef.current + 1;
+      const state = historyRef.current[nextIdx];
+      setNodes(state.nodes);
+      setEdges(state.edges);
+      setHistoryIndex(nextIdx);
+    }
+  };
 
   // Sync refs after render to avoid ESLint rule violations
   useEffect(() => {
@@ -154,9 +245,20 @@ export default function SystemDesignPlayground({
     zoomRef.current = zoom;
     panOffsetRef.current = panOffset;
     nodesRef.current = nodes;
+    edgesRef.current = edges;
     selectionStartRef.current = selectionStart;
     draggingNodesStartRef.current = draggingNodesStart;
+    resizingNodeIdRef.current = resizingNodeId;
+    resizingStartDimsRef.current = resizingStartDims;
+    historyRef.current = history;
+    historyIndexRef.current = historyIndex;
+    undoRef.current = undo;
+    redoRef.current = redo;
+    pushToHistoryRef.current = pushToHistory;
+    draggingNodeIdRef.current = draggingNodeId;
   });
+
+
 
   // Save nodes and edges to sessionStorage
   useEffect(() => {
@@ -217,20 +319,22 @@ export default function SystemDesignPlayground({
       const x = (cx - panOffset.x) / zoom + rx;
       const y = (cy - panOffset.y) / zoom + ry;
 
-      setNodes((nds) => [
-        ...nds,
-        {
-          id,
-          type,
-          label: type.charAt(0).toUpperCase() + type.slice(1),
-          x,
-          y,
-          w: 124,
-          h: 48,
-        },
-      ]);
+      const label = type.charAt(0).toUpperCase() + type.slice(1);
+      const dims = computeNodeDimensions(type, label);
+      const newNode = {
+        id,
+        type,
+        label,
+        x,
+        y,
+        w: dims.w,
+        h: dims.h,
+      };
+
+      setNodes((nds) => [...nds, newNode]);
+      pushToHistoryRef.current([...nodesRef.current, newNode], edges);
     },
-    [panOffset, zoom],
+    [panOffset, zoom, edges],
   );
 
   const handleDragStart = useCallback((e: React.DragEvent, type: string) => {
@@ -250,20 +354,22 @@ export default function SystemDesignPlayground({
       const y = (e.clientY - rect.top - panOffset.y) / zoom;
 
       const id = `n${++nodeCounterRef.current}`;
-      setNodes((nds) => [
-        ...nds,
-        {
-          id,
-          type,
-          label: type.charAt(0).toUpperCase() + type.slice(1),
-          x,
-          y,
-          w: 124,
-          h: 48,
-        },
-      ]);
+      const label = type.charAt(0).toUpperCase() + type.slice(1);
+      const dims = computeNodeDimensions(type, label);
+      const newNode = {
+        id,
+        type,
+        label,
+        x,
+        y,
+        w: dims.w,
+        h: dims.h,
+      };
+
+      setNodes((nds) => [...nds, newNode]);
+      pushToHistoryRef.current([...nodesRef.current, newNode], edges);
     },
-    [panOffset, zoom],
+    [panOffset, zoom, edges],
   );
 
   const handleNodeMouseDown = useCallback(
@@ -294,8 +400,8 @@ export default function SystemDesignPlayground({
               const clientY = midCanvasY * z + panY + rect.top;
 
               setPopupPosition({
-                x: clientX - rect.left,
-                y: clientY - rect.top,
+                x: clientX,
+                y: clientY,
               });
             }
             setEdgeDescriptor("");
@@ -335,6 +441,17 @@ export default function SystemDesignPlayground({
     [mode, edgeStartNodeId, nodes, selectedNodeIds, editingNodeId],
   );
 
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent, node: NodeData) => {
+      e.stopPropagation();
+      e.preventDefault();
+      setResizingNodeId(node.id);
+      setDragOffset({ x: e.clientX, y: e.clientY });
+      setResizingStartDims({ w: node.w, h: node.h, x: node.x, y: node.y });
+    },
+    [],
+  );
+
   const handleNodeDoubleClick = useCallback(
     (e: React.MouseEvent, node: NodeData) => {
       e.stopPropagation();
@@ -368,8 +485,8 @@ export default function SystemDesignPlayground({
         const clientY = midCanvasY * z + panY + rect.top;
 
         setPopupPosition({
-          x: clientX - rect.left,
-          y: clientY - rect.top,
+          x: clientX,
+          y: clientY,
         });
       }
     },
@@ -378,25 +495,38 @@ export default function SystemDesignPlayground({
 
   const handleSaveInline = useCallback(
     (nodeId: string) => {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === nodeId
-            ? {
-                ...n,
-                label: editName.trim() || n.label,
-                tag: editTag.trim() || undefined,
-              }
-            : n,
-        ),
-      );
+      const nextNodes = nodes.map((n) => {
+        if (n.id === nodeId) {
+          const nextLabel = editName.trim() || n.label;
+          const nextTag = editTag.trim() || undefined;
+
+          // Preserve custom width, and adjust height only if the updated text overflows the current height
+          const maxChars = Math.max(10, Math.floor((n.w - 16) / 6.5));
+          const linesCount = wrapText(nextLabel, maxChars).length;
+          const minHForText = Math.max(48, 28 + linesCount * 14);
+
+          return {
+            ...n,
+            label: nextLabel,
+            tag: nextTag,
+            w: n.w,
+            h: Math.max(n.h, minHForText),
+          };
+        }
+        return n;
+      });
+
+      setNodes(nextNodes);
+      pushToHistoryRef.current(nextNodes, edges);
       setEditingNodeId(null);
     },
-    [editName, editTag],
+    [editName, editTag, nodes, edges],
   );
 
   const handleEditKeyDown = useCallback(
     (e: React.KeyboardEvent, nodeId: string) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
         handleSaveInline(nodeId);
       } else if (e.key === "Escape") {
         setEditingNodeId(null);
@@ -418,46 +548,41 @@ export default function SystemDesignPlayground({
   const handleConfirmEdge = useCallback(() => {
     if (!pendingEdge) return;
 
-    if (!edgeTag.trim()) {
-      alert(
-        "Please provide information about what the connection is (e.g., purpose, details).",
-      );
-      return;
-    }
-
     const exists = edges.some(
       (e) => e.from === pendingEdge.from.id && e.to === pendingEdge.to.id,
     );
 
+    let nextEdges: EdgeData[];
     if (exists) {
-      setEdges((eds) =>
-        eds.map((e) =>
-          e.from === pendingEdge.from.id && e.to === pendingEdge.to.id
-            ? {
-                ...e,
-                descriptor: edgeDescriptor.trim(),
-                tag: edgeTag.trim() || undefined,
-              }
-            : e,
-        ),
+      nextEdges = edges.map((e) =>
+        e.from === pendingEdge.from.id && e.to === pendingEdge.to.id
+          ? {
+              ...e,
+              descriptor: edgeDescriptor.trim(),
+              tag: edgeTag.trim() || undefined,
+            }
+          : e,
       );
     } else {
-      setEdges((eds) => [
-        ...eds,
+      nextEdges = [
+        ...edges,
         {
           from: pendingEdge.from.id,
           to: pendingEdge.to.id,
           descriptor: edgeDescriptor.trim(),
           tag: edgeTag.trim() || undefined,
         },
-      ]);
+      ];
     }
+
+    setEdges(nextEdges);
+    pushToHistoryRef.current(nodes, nextEdges);
 
     setPopupPosition(null);
     setPendingEdge(null);
     setEdgeStartNodeId(null);
     setMode("select");
-  }, [pendingEdge, edges, edgeDescriptor, edgeTag]);
+  }, [pendingEdge, edges, edgeDescriptor, edgeTag, nodes]);
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -537,6 +662,7 @@ export default function SystemDesignPlayground({
   const handleConfirmClear = useCallback(() => {
     setNodes([]);
     setEdges([]);
+    pushToHistoryRef.current([], []);
     setSelectedNodeIds([]);
     setEdgeStartNodeId(null);
     setPanOffset({ x: 0, y: 0 });
@@ -568,14 +694,31 @@ export default function SystemDesignPlayground({
       if (e.key === "Delete" || e.key === "Backspace") {
         const selected = selectedNodeIdsRef.current;
         if (selected.length > 0) {
-          setNodes((nds) => nds.filter((n) => !selected.includes(n.id)));
-          setEdges((eds) =>
-            eds.filter(
-              (ed) => !selected.includes(ed.from) && !selected.includes(ed.to),
-            ),
+          const nextNodes = nodesRef.current.filter((n) => !selected.includes(n.id));
+          const nextEdges = edgesRef.current.filter(
+            (ed) => !selected.includes(ed.from) && !selected.includes(ed.to),
           );
+          setNodes(nextNodes);
+          setEdges(nextEdges);
+          pushToHistoryRef.current(nextNodes, nextEdges);
           setSelectedNodeIds([]);
         }
+        return;
+      }
+
+      // 4. Undo / Redo keyboard shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redoRef.current();
+        } else {
+          undoRef.current();
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redoRef.current();
         return;
       }
 
@@ -606,9 +749,9 @@ export default function SystemDesignPlayground({
     };
   }, []);
 
-  // Drag, Pan, and Marquee Selection listeners
+  // Drag, Pan, Resizing, and Marquee Selection listeners
   useEffect(() => {
-    if (!draggingNodeId && !isPanning && !selectionStart) return;
+    if (!draggingNodeId && !resizingNodeId && !isPanning && !selectionStart) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       if (isPanning) {
@@ -616,6 +759,34 @@ export default function SystemDesignPlayground({
           x: e.clientX - panStartRef.current.x,
           y: e.clientY - panStartRef.current.y,
         });
+        return;
+      }
+
+      if (resizingNodeIdRef.current) {
+        const deltaX = e.clientX - dragOffsetRef.current.x;
+        const deltaY = e.clientY - dragOffsetRef.current.y;
+        const dx = deltaX / zoomRef.current;
+        const dy = deltaY / zoomRef.current;
+
+        setNodes((nds) =>
+          nds.map((n) => {
+            if (n.id === resizingNodeIdRef.current) {
+              const start = resizingStartDimsRef.current;
+              const nextW = Math.max(90, start.w + dx);
+              const nextH = Math.max(40, start.h + dy);
+              const actualDx = nextW - start.w;
+              const actualDy = nextH - start.h;
+              return {
+                ...n,
+                w: nextW,
+                h: nextH,
+                x: start.x + actualDx / 2,
+                y: start.y + actualDy / 2,
+              };
+            }
+            return n;
+          }),
+        );
         return;
       }
 
@@ -678,7 +849,11 @@ export default function SystemDesignPlayground({
     };
 
     const handleMouseUp = () => {
+      if (draggingNodeIdRef.current || resizingNodeIdRef.current) {
+        pushToHistoryRef.current(nodesRef.current, edgesRef.current);
+      }
       setDraggingNodeId(null);
+      setResizingNodeId(null);
       setIsPanning(false);
       setSelectionStart(null);
       setSelectionBox(null);
@@ -690,7 +865,7 @@ export default function SystemDesignPlayground({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggingNodeId, isPanning, selectionStart]);
+  }, [draggingNodeId, resizingNodeId, isPanning, selectionStart]);
 
   // Wheel zoom handler registered manually for passive controls support
   useEffect(() => {
@@ -798,6 +973,10 @@ export default function SystemDesignPlayground({
         setMode={setMode}
         setEdgeStartNodeId={setEdgeStartNodeId}
         clearCanvas={clearCanvas}
+        canUndo={historyIndex > 0}
+        canRedo={historyIndex < history.length - 1}
+        undo={undo}
+        redo={redo}
       />
 
       {/* 3. Floating Toolbox (Left Sidebar) */}
@@ -900,6 +1079,7 @@ export default function SystemDesignPlayground({
                   editTag={editTag}
                   setEditTag={setEditTag}
                   handleEditKeyDown={handleEditKeyDown}
+                  handleResizeMouseDown={handleResizeMouseDown}
                 />
               ))}
             </g>

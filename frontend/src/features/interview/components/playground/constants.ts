@@ -19,6 +19,7 @@ export const COMPONENTS: ComponentPreset[] = [
   { type: "search", label: "Search", color: "#3B6D11", text: "#EAF3DE" },
   { type: "worker", label: "Worker", color: "#993C1D", text: "#FAECE7" },
   { type: "custom", label: "Custom", color: "#475569", text: "#f8fafc" },
+  { type: "note", label: "Note / Text", color: "#FEF08A", text: "#713F12" },
 ];
 
 export const SUGGESTIONS = [

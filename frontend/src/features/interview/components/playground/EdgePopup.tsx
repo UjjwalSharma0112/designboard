@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { SUGGESTIONS, EDGE_TAG_SUGGESTIONS } from "./constants";
 
 interface EdgePopupProps {
@@ -22,20 +23,45 @@ export default function EdgePopup({
   handleConfirmEdge,
   edgePopupRef,
 }: EdgePopupProps) {
-  if (!popupPosition) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!mounted || !popupPosition) return null;
+
+  // Safety viewport calculations
+  const popupWidth = 260;
+  const popupHeight = 360;
+
+  let left = popupPosition.x;
+  let top = popupPosition.y;
+
+  if (typeof window !== "undefined") {
+    // Keep within horizontal bounds
+    if (left + popupWidth > window.innerWidth) {
+      left = Math.max(16, window.innerWidth - popupWidth - 16);
+    }
+    // Keep within vertical bounds
+    if (top + popupHeight > window.innerHeight) {
+      top = Math.max(16, window.innerHeight - popupHeight - 16);
+    }
+  }
+
+  return createPortal(
     <div
       ref={edgePopupRef}
-      className="absolute z-30 bg-raised border border-line rounded-card p-4 shadow-lift min-w-[250px] flex flex-col gap-3.5 transition-all text-left"
+      className="fixed z-[9999] bg-raised border border-line rounded-card p-4 shadow-lift min-w-[250px] flex flex-col gap-3.5 transition-all text-left animate-in fade-in zoom-in-95 duration-150"
       style={{
-        left: `${popupPosition.x}px`,
-        top: `${popupPosition.y}px`,
+        left: `${left}px`,
+        top: `${top}px`,
       }}
     >
       <div className="flex flex-col gap-1 border-t border-line/40 pt-2.5">
         <label className="text-[9px] text-faint tracking-wider uppercase font-bold">
-          1. connection details / purpose (required)
+          1. connection details / purpose (optional)
         </label>
         <input
           value={edgeTag}
@@ -83,19 +109,21 @@ export default function EdgePopup({
 
       <div className="flex gap-1.5 justify-end mt-1 border-t border-line/40 pt-2.5">
         <button
+          type="button"
           onClick={handleCancelEdge}
           className="text-[10px] font-mono px-2.5 py-1 rounded-card border border-line text-muted hover:text-fg transition-colors"
         >
           cancel
         </button>
         <button
+          type="button"
           onClick={handleConfirmEdge}
-          disabled={!edgeTag.trim()}
-          className="text-[10px] font-mono px-2.5 py-1 rounded-card bg-accent text-accent-contrast border border-accent hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-[10px] font-mono px-2.5 py-1 rounded-card bg-accent text-accent-contrast border border-accent hover:opacity-90 transition-opacity"
         >
           add edge
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
