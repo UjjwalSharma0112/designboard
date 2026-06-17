@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play } from "lucide-react";
+import { Play, LogIn, UserPlus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/features/auth/AuthProvider";
 import Sidebar from "./playground/Sidebar";
 import ModeToolbar from "./playground/ModeToolbar";
 import ZoomToolbar from "./playground/ZoomToolbar";
@@ -70,6 +72,10 @@ export default function SystemDesignPlayground({
   onBack,
   onSubmit,
 }: SystemDesignPlaygroundProps) {
+  const router = useRouter();
+  const { status } = useAuth();
+  const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
+
   // SVG Canvas states
   const [nodes, setNodes] = useState<NodeData[]>(() => {
     if (typeof window !== "undefined") {
@@ -925,8 +931,12 @@ export default function SystemDesignPlayground({
   }, [nodes, edges]);
 
   const handleSubmit = useCallback(() => {
-    onSubmit(getJSON());
-  }, [onSubmit, getJSON]);
+    if (status !== "authenticated") {
+      setShowAuthRequiredModal(true);
+    } else {
+      onSubmit(getJSON());
+    }
+  }, [status, onSubmit, getJSON]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-130px)] min-h-[600px] w-full rounded-card border border-line bg-surface/30 backdrop-blur overflow-hidden shadow-soft select-none text-fg">
@@ -1159,6 +1169,69 @@ export default function SystemDesignPlayground({
                   className="flex-1 rounded-full bg-warn py-1.5 text-[10px] font-mono uppercase tracking-wider font-bold text-accent-contrast shadow-soft hover:opacity-90 transition-all cursor-pointer"
                 >
                   Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Auth Required Modal */}
+        {showAuthRequiredModal && (
+          <div className="absolute inset-0 bg-bg/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm bg-raised border border-line rounded-card p-6 shadow-lift text-center animate-in zoom-in-95 duration-200 relative">
+              <button
+                type="button"
+                onClick={() => setShowAuthRequiredModal(false)}
+                className="absolute top-4 right-4 text-muted hover:text-fg transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft border border-accent/20 text-accent mb-4">
+                <Play className="h-5 w-5 fill-current ml-0.5" />
+              </div>
+
+              <h3 className="font-display text-lg font-semibold text-fg">
+                Sign in to Start Interview
+              </h3>
+              <p className="mt-2.5 text-xs text-muted leading-relaxed">
+                To start your AI-powered system design interview and get evaluated, please log in or create an account. We will preserve your current diagram so you can continue immediately.
+              </p>
+              
+              <div className="mt-6 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("practice.auto_start_interview", "true");
+                    }
+                    router.push("/login");
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-2.5 text-xs font-mono uppercase tracking-wider font-bold text-accent-contrast shadow-soft hover:opacity-95 transition-all cursor-pointer"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("practice.auto_start_interview", "true");
+                    }
+                    router.push("/signup");
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-line py-2.5 text-xs font-mono uppercase tracking-wider font-bold text-fg bg-surface/50 hover:border-fg transition-all cursor-pointer"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Create Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthRequiredModal(false)}
+                  className="mt-1.5 text-[11px] font-mono uppercase tracking-wider text-muted hover:text-fg transition-all cursor-pointer"
+                >
+                  Continue Drawing
                 </button>
               </div>
             </div>

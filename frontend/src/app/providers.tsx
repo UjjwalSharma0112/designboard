@@ -9,6 +9,7 @@ import { MotionConfig } from "framer-motion";
 import { makeQueryClient } from "@/lib/queryClient";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { ThemeProvider } from "@/features/theme/ThemeProvider";
+import { ToastProvider } from "@/features/toast/ToastProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
@@ -17,7 +18,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          <ToastProvider>
+            <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

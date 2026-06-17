@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import InterviewRunner from "@/features/interview/components/InterviewRunner";
-import RequireAuth from "@/features/auth/RequireAuth";
 
 // The runner lives on the dark, low-distraction "interview room" theme. The
 // data-theme switch re-points every design token; runner-surface + grain add
@@ -57,9 +56,7 @@ export default function PracticePage() {
       </header>
 
       <main className="mx-auto w-full max-w-none px-6 md:px-10 flex-1 flex flex-col pb-6">
-        <RequireAuth>
-          <InterviewRunner />
-        </RequireAuth>
+        <InterviewRunner />
       </main>
     </div>
   );

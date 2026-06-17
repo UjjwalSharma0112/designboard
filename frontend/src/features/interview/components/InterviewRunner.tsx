@@ -11,10 +11,14 @@ import ThinkingIndicator from "./ThinkingIndicator";
 import LiveTranscript from "./LiveTranscript";
 import InterviewProgress from "./InterviewProgress";
 import ReportView from "@/features/report/components/ReportView";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { useToast } from "@/features/toast/ToastProvider";
 
 type Phase = "INTRO" | "INTERVIEW" | "REPORT";
 
 export default function InterviewRunner() {
+  const { status } = useAuth();
+  const { showToast } = useToast();
   const [phase, setPhase] = useState<Phase>("INTRO");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<{ 
@@ -26,14 +30,6 @@ export default function InterviewRunner() {
   const [isThinking, setIsThinking] = useState(false);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [report, setReport] = useState<FeedbackResponse | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
-
-  function showToast(message: string, type: "error" | "success" = "error") {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast((current) => current?.message === message ? null : current);
-    }, 4000);
-  }
 
   function getCleanErrorMessage(err: unknown): string {
     const msg = err instanceof Error ? err.message : String(err);
@@ -49,8 +45,16 @@ export default function InterviewRunner() {
     if (msg.toLowerCase().includes("api key") || msg.toLowerCase().includes("generative") || msg.toLowerCase().includes("google")) {
       return "Error (500): The AI service failed to respond.";
     }
-    if (msg.toLowerCase().includes("fetch")) {
-      return "Error: Failed to connect to server.";
+    const lowerMsg = msg.toLowerCase();
+    if (
+      lowerMsg.includes("fetch") || 
+      lowerMsg.includes("refused") || 
+      lowerMsg.includes("econnrefused") || 
+      lowerMsg.includes("network") || 
+      lowerMsg.includes("load failed") ||
+      lowerMsg.includes("connection failed")
+    ) {
+      return "Error: Failed to connect to server (Connection Refused).";
     }
     return `Error: ${msg}`;
   }
@@ -308,9 +312,58 @@ export default function InterviewRunner() {
     };
   }, []);
 
+  // Auto-start interview if returning from login/signup after drawing a diagram unauthorized
+  useEffect(() => {
+    if (typeof window === "undefined" || status !== "authenticated") return;
+    const autoStart = sessionStorage.getItem("practice.auto_start_interview");
+    if (autoStart !== "true") return;
+
+    const savedQuestionStr = sessionStorage.getItem("system_design_playground.selected_question");
+    if (!savedQuestionStr) return;
+
+    try {
+      const selectedQuestion = JSON.parse(savedQuestionStr);
+      const savedDiagramStr = sessionStorage.getItem(`playground_diagram_${selectedQuestion.id}`);
+      if (savedDiagramStr) {
+        const parsedDiagram = JSON.parse(savedDiagramStr);
+        const transformedNodes = (parsedDiagram.nodes || []).map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          label: n.label,
+          tag: n.tag,
+          data: { label: n.label, type: n.type, tag: n.tag },
+        }));
+        const transformedEdges = (parsedDiagram.edges || []).map((e: any) => ({
+          from: e.from,
+          to: e.to,
+          descriptor: e.descriptor,
+          tag: e.tag,
+          source: e.from,
+          target: e.to,
+          label: e.descriptor,
+        }));
+        const serialized = JSON.stringify({ nodes: transformedNodes, edges: transformedEdges });
+
+        // Clean session and local storage draft state upon starting the interview
+        sessionStorage.removeItem("system_design_playground.selected_question");
+        sessionStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
+        sessionStorage.removeItem("practice.auto_start_interview");
+        localStorage.removeItem("system_design_playground.selected_question");
+        localStorage.removeItem(`playground_diagram_${selectedQuestion.id}`);
+
+        handleStart({
+          topic: selectedQuestion.title,
+          difficulty: selectedQuestion.difficulty,
+          interviewContext: serialized,
+        });
+      }
+    } catch (err) {
+      console.error("Auto-start interview failed:", err);
+    }
+  }, [status]);
+
   async function handleStart(config: SessionConfig) {
     setIsStarting(true);
-    setToast(null);
     try {
       const res = await interviewClient.start(config);
       setSessionId(res.sessionId);
@@ -454,7 +507,6 @@ export default function InterviewRunner() {
           setCurrentQuestion(null);
           setTranscript([]);
           setReport(null);
-          setToast(null);
         }}
       />
 
@@ -494,28 +546,6 @@ export default function InterviewRunner() {
       </div>
 
       <LiveTranscript turns={transcript} />
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-card border border-warn bg-surface/85 backdrop-blur px-4 py-3 shadow-lift font-mono text-xs text-warn"
-            role="alert"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-warn animate-pulse" />
-            <span>{toast.message}</span>
-            <button 
-              onClick={() => setToast(null)} 
-              className="ml-2 hover:text-fg text-faint cursor-pointer font-bold text-sm"
-              aria-label="Close error message"
-            >
-              ×
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

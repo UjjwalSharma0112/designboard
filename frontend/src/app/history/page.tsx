@@ -8,15 +8,33 @@ import type { InterviewHistoryItem } from "@/lib/types";
 import ReportView from "@/features/report/components/ReportView";
 import RequireAuth from "@/features/auth/RequireAuth";
 import SiteHeader from "@/components/SiteHeader";
+import { useToast } from "@/features/toast/ToastProvider";
 
 export default function HistoryPage() {
   const [history, setHistory] = useState<InterviewHistoryItem[]>([]);
   const [selected, setSelected] = useState<InterviewHistoryItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     interviewClient.getHistory()
       .then(setHistory)
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        const lowerMsg = msg.toLowerCase();
+        if (
+          lowerMsg.includes("fetch") || 
+          lowerMsg.includes("refused") || 
+          lowerMsg.includes("econnrefused") || 
+          lowerMsg.includes("network") || 
+          lowerMsg.includes("load failed") ||
+          lowerMsg.includes("connection failed")
+        ) {
+          showToast("Error: Failed to connect to server (Connection Refused).");
+        } else {
+          showToast(`Error loading history: ${msg}`);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 

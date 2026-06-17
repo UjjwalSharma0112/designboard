@@ -39,7 +39,7 @@ export default function SiteHeader({ active }: { active?: string }) {
       <div className="flex items-center gap-2 sm:gap-3">
         <nav aria-label="Surfaces" className="hidden sm:block">
           <ul className="flex items-center gap-1">
-            {NAV.map((item) => {
+            {NAV.filter(item => item.href !== "/history" || (status === "authenticated" && user)).map((item) => {
               const isActive = active === item.href;
               return (
                 <li key={item.href}>

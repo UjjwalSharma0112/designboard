@@ -13,6 +13,7 @@ import {
   FileText,
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
+import { useAuth } from "@/features/auth/AuthProvider";
 import ReportView from "@/features/report/components/ReportView";
 import type { Report } from "@/features/report/types";
 
@@ -379,6 +380,13 @@ function ClosingCta() {
 }
 
 function SiteFooter() {
+  const { status, user } = useAuth();
+  
+  const links = [{ href: "/practice", label: "Playground & Practice" }];
+  if (status === "authenticated" && user) {
+    links.push({ href: "/history", label: "My Designs" });
+  }
+
   return (
     <footer className="border-t border-line">
       <div className="mx-auto grid w-full max-w-5xl gap-8 px-6 py-12 sm:grid-cols-[1.8fr_1fr]">
@@ -393,10 +401,7 @@ function SiteFooter() {
 
         <FooterCol
           heading="Surfaces"
-          links={[
-            { href: "/practice", label: "Playground & Practice" },
-            { href: "/history", label: "My Designs" },
-          ]}
+          links={links}
         />
       </div>
       <div className="mx-auto w-full max-w-5xl px-6 pb-10">
