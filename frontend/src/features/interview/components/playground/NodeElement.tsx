@@ -104,7 +104,7 @@ export default function NodeElement({
       {isEditing ? (
         <foreignObject x={0} y={0} width={node.w} height={node.h} style={{ overflow: "hidden" }}>
           <div
-            className="w-full h-full flex flex-col justify-center items-center px-2.5 py-1 bg-raised rounded-[6px] border border-accent text-center overflow-hidden"
+            className="w-full h-full flex flex-col justify-center items-center px-3.5 py-2 bg-raised rounded-[6px] border border-accent text-center overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
             onFocus={(e) => e.stopPropagation()}
             onBlur={(e) => handleContainerBlur(e, node.id)}

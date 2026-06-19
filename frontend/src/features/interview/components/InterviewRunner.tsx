@@ -60,20 +60,14 @@ export default function InterviewRunner() {
   }
   
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isStarting, setIsStarting] = useState(() => {
-    if (typeof window !== "undefined") {
-      return !!sessionStorage.getItem("interview_room.active_session_id");
-    }
-    return false;
-  });
+  const [isStarting, setIsStarting] = useState(false);
+  const [isTtsEnabled, setIsTtsEnabled] = useState(false);
 
-  const [isTtsEnabled, setIsTtsEnabled] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("interview_room.tts_enabled");
-      return saved === "true";
-    }
-    return false;
-  });
+  useEffect(() => {
+    setIsStarting(!!sessionStorage.getItem("interview_room.active_session_id"));
+    const savedTts = localStorage.getItem("interview_room.tts_enabled");
+    setIsTtsEnabled(savedTts === "true");
+  }, []);
 
   const handleToggleTts = (enabled: boolean) => {
     setIsTtsEnabled(enabled);
@@ -326,13 +320,20 @@ export default function InterviewRunner() {
       const savedDiagramStr = sessionStorage.getItem(`playground_diagram_${selectedQuestion.id}`);
       if (savedDiagramStr) {
         const parsedDiagram = JSON.parse(savedDiagramStr);
-        const transformedNodes = (parsedDiagram.nodes || []).map((n: any) => ({
-          id: n.id,
-          type: n.type,
-          label: n.label,
-          tag: n.tag,
-          data: { label: n.label, type: n.type, tag: n.tag },
-        }));
+        const uniqueNodeIds = new Set<string>();
+        const transformedNodes = (parsedDiagram.nodes || [])
+          .map((n: any) => ({
+            id: n.id,
+            type: n.type,
+            label: n.label,
+            tag: n.tag,
+            data: { label: n.label, type: n.type, tag: n.tag },
+          }))
+          .filter((n: any) => {
+            if (uniqueNodeIds.has(n.id)) return false;
+            uniqueNodeIds.add(n.id);
+            return true;
+          });
         const transformedEdges = (parsedDiagram.edges || []).map((e: any) => ({
           from: e.from,
           to: e.to,

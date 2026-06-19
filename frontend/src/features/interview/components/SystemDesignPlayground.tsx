@@ -63,7 +63,7 @@ export function computeNodeDimensions(type: string, label: string, _tag?: string
 
   // Calculate height dynamically based on label lines count
   const isNote = type === "note";
-  const h = isNote ? Math.max(48, 16 + linesCount * 14) : Math.max(48, 28 + linesCount * 14);
+  const h = isNote ? Math.max(48, 20 + linesCount * 14) : Math.max(48, 32 + linesCount * 14);
   return { w, h };
 }
 
@@ -77,42 +77,54 @@ export default function SystemDesignPlayground({
   const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
 
   // SVG Canvas states
-  const [nodes, setNodes] = useState<NodeData[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem(`playground_diagram_${question.id}`);
-      if (saved) {
-        try {
-          const { nodes: savedNodes } = JSON.parse(saved);
-          if (Array.isArray(savedNodes)) {
-            return savedNodes.map((n: Omit<NodeData, "w" | "h">) => {
+  const [nodes, setNodes] = useState<NodeData[]>([]);
+  const [edges, setEdges] = useState<EdgeData[]>([]);
+
+  // Load saved diagram from sessionStorage after mounting to prevent SSR hydration mismatch
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`playground_diagram_${question.id}`);
+    if (saved) {
+      try {
+        const { nodes: savedNodes, edges: savedEdges } = JSON.parse(saved);
+        let loadedNodes: NodeData[] = [];
+        let loadedEdges: EdgeData[] = [];
+
+        if (Array.isArray(savedNodes)) {
+          const uniqueIds = new Set<string>();
+          loadedNodes = savedNodes
+            .map((n: Omit<NodeData, "w" | "h">) => {
               const dims = computeNodeDimensions(n.type, n.label, n.tag);
               return { ...n, w: dims.w, h: dims.h } as NodeData;
+            })
+            .filter((n) => {
+              if (uniqueIds.has(n.id)) {
+                return false;
+              }
+              uniqueIds.add(n.id);
+              return true;
             });
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return [];
-  });
+          setNodes(loadedNodes);
 
-  const [edges, setEdges] = useState<EdgeData[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem(`playground_diagram_${question.id}`);
-      if (saved) {
-        try {
-          const { edges: savedEdges } = JSON.parse(saved);
-          if (Array.isArray(savedEdges)) {
-            return savedEdges;
-          }
-        } catch {
-          // ignore
+          // Update nodeCounterRef to match the loaded nodes to prevent duplicate ID generation!
+          const maxId = loadedNodes.reduce((max, node) => {
+            const num = parseInt(node.id.replace(/\D/g, ""), 10);
+            return isNaN(num) ? max : Math.max(max, num);
+          }, 0);
+          nodeCounterRef.current = maxId;
         }
+        if (Array.isArray(savedEdges)) {
+          loadedEdges = savedEdges;
+          setEdges(loadedEdges);
+        }
+        
+        // Reset history stack with the loaded state
+        setHistory([{ nodes: loadedNodes, edges: loadedEdges }]);
+        setHistoryIndex(0);
+      } catch {
+        // ignore
       }
     }
-    return [];
-  });
+  }, [question.id]);
 
   const [mode, setMode] = useState<"select" | "pan" | "edge">("select");
   const [edgeStartNodeId, setEdgeStartNodeId] = useState<string | null>(null);
@@ -175,6 +187,7 @@ export default function SystemDesignPlayground({
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editTag, setEditTag] = useState("");
+  const editingNodeOrigDimsRef = useRef<{ w: number; h: number; x: number; y: number } | null>(null);
 
   // DOM Refs
   const svgRef = useRef<SVGSVGElement>(null);
@@ -464,8 +477,58 @@ export default function SystemDesignPlayground({
       setEditingNodeId(node.id);
       setEditName(node.label);
       setEditTag(node.tag || "");
+      editingNodeOrigDimsRef.current = { w: node.w, h: node.h, x: node.x, y: node.y };
     },
     [],
+  );
+
+  const adjustNodeHeightForEditing = useCallback((nodeId: string, name: string, tag: string) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === nodeId) {
+          const isNote = n.type === "note";
+          const maxChars = Math.max(10, Math.floor((n.w - 16) / 6.5));
+          const linesCount = wrapText(name, maxChars).length;
+
+          const baseHeight = isNote ? 20 : 32;
+          const minHForText = Math.max(48, baseHeight + linesCount * 14);
+
+          // Get the original height before editing started, to make sure we don't shrink below it
+          const origH = editingNodeOrigDimsRef.current?.h ?? n.h;
+          const nextH = Math.max(origH, minHForText);
+
+          if (nextH !== n.h) {
+            const actualDy = nextH - n.h;
+            return {
+              ...n,
+              h: nextH,
+              y: n.y + actualDy / 2,
+            };
+          }
+        }
+        return n;
+      })
+    );
+  }, []);
+
+  const handleEditNameChange = useCallback(
+    (val: string) => {
+      setEditName(val);
+      if (editingNodeId) {
+        adjustNodeHeightForEditing(editingNodeId, val, editTag);
+      }
+    },
+    [editingNodeId, editTag, adjustNodeHeightForEditing]
+  );
+
+  const handleEditTagChange = useCallback(
+    (val: string) => {
+      setEditTag(val);
+      if (editingNodeId) {
+        adjustNodeHeightForEditing(editingNodeId, editName, val);
+      }
+    },
+    [editingNodeId, editName, adjustNodeHeightForEditing]
   );
 
   const handleEdgeDoubleClick = useCallback(
@@ -509,7 +572,9 @@ export default function SystemDesignPlayground({
           // Preserve custom width, and adjust height only if the updated text overflows the current height
           const maxChars = Math.max(10, Math.floor((n.w - 16) / 6.5));
           const linesCount = wrapText(nextLabel, maxChars).length;
-          const minHForText = Math.max(48, 28 + linesCount * 14);
+          const isNote = n.type === "note";
+          const baseHeight = isNote ? 20 : 32;
+          const minHForText = Math.max(48, baseHeight + linesCount * 14);
 
           return {
             ...n,
@@ -535,6 +600,23 @@ export default function SystemDesignPlayground({
         e.preventDefault();
         handleSaveInline(nodeId);
       } else if (e.key === "Escape") {
+        if (editingNodeOrigDimsRef.current) {
+          const orig = editingNodeOrigDimsRef.current;
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id === nodeId) {
+                return {
+                  ...n,
+                  w: orig.w,
+                  h: orig.h,
+                  x: orig.x,
+                  y: orig.y,
+                };
+              }
+              return n;
+            })
+          );
+        }
         setEditingNodeId(null);
       }
     },
@@ -1085,9 +1167,9 @@ export default function SystemDesignPlayground({
                   handleNodeDoubleClick={handleNodeDoubleClick}
                   handleContainerBlur={handleContainerBlur}
                   editName={editName}
-                  setEditName={setEditName}
+                  setEditName={handleEditNameChange}
                   editTag={editTag}
-                  setEditTag={setEditTag}
+                  setEditTag={handleEditTagChange}
                   handleEditKeyDown={handleEditKeyDown}
                   handleResizeMouseDown={handleResizeMouseDown}
                 />

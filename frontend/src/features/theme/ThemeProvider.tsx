@@ -13,12 +13,14 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("theme") as Theme) || "system";
+  const [theme, setThemeState] = useState<Theme>("system");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as Theme;
+    if (saved) {
+      setThemeState(saved);
     }
-    return "system";
-  });
+  }, []);
 
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 

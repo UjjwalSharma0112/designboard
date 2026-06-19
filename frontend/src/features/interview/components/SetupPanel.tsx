@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Volume2, VolumeX, ArrowRight } from "lucide-react";
 import type { SessionConfig, Difficulty } from "@/lib/types";
@@ -102,19 +102,18 @@ export default function SetupPanel({
   isTtsEnabled,
   onToggleTts,
 }: SetupPanelProps) {
-  const [selectedQuestion, setSelectedQuestion] = useState<SystemDesignQuestion | null>(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("system_design_playground.selected_question");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          return null;
-        }
+  const [selectedQuestion, setSelectedQuestion] = useState<SystemDesignQuestion | null>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("system_design_playground.selected_question");
+    if (saved) {
+      try {
+        setSelectedQuestion(JSON.parse(saved));
+      } catch {
+        // ignore
       }
     }
-    return null;
-  });
+  }, []);
 
   const handleSelectQuestion = (q: SystemDesignQuestion | null) => {
     setSelectedQuestion(q);
