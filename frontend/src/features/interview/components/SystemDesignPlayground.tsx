@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, LogIn, UserPlus, X } from "lucide-react";
+import { Play, LogIn, UserPlus, X, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/AuthProvider";
 import Sidebar from "./playground/Sidebar";
@@ -11,6 +11,7 @@ import EdgePopup from "./playground/EdgePopup";
 import ControlsGuide from "./playground/ControlsGuide";
 import NodeElement, { NodeData, wrapText } from "./playground/NodeElement";
 import EdgeElement, { EdgeData } from "./playground/EdgeElement";
+import { PRESET_DIAGRAMS } from "./playground/presets";
 
 interface ExportedNode {
   id: string;
@@ -37,11 +38,17 @@ interface SystemDesignPlaygroundProps {
     description: string;
     difficulty: string;
   };
-  onBack: () => void;
-  onSubmit: (data: { nodes: ExportedNode[]; edges: ExportedEdge[] }) => void;
+  onBack?: () => void;
+  onSubmit?: (data: { nodes: ExportedNode[]; edges: ExportedEdge[] }) => void;
+  isInterviewMode?: boolean;
+  isQuickStart?: boolean;
 }
 
-export function computeNodeDimensions(type: string, label: string, _tag?: string) {
+export function computeNodeDimensions(
+  type: string,
+  label: string,
+  _tag?: string,
+) {
   const w = 130;
   // Estimate word-wrapped lines for the label at a width of 130px
   const charsPerLine = 17;
@@ -63,7 +70,9 @@ export function computeNodeDimensions(type: string, label: string, _tag?: string
 
   // Calculate height dynamically based on label lines count
   const isNote = type === "note";
-  const h = isNote ? Math.max(48, 20 + linesCount * 14) : Math.max(48, 32 + linesCount * 14);
+  const h = isNote
+    ? Math.max(48, 20 + linesCount * 14)
+    : Math.max(48, 32 + linesCount * 14);
   return { w, h };
 }
 
@@ -71,6 +80,8 @@ export default function SystemDesignPlayground({
   question,
   onBack,
   onSubmit,
+  isInterviewMode = false,
+  isQuickStart = false,
 }: SystemDesignPlaygroundProps) {
   const router = useRouter();
   const { status } = useAuth();
@@ -116,7 +127,9 @@ export default function SystemDesignPlayground({
           loadedEdges = savedEdges;
           setEdges(loadedEdges);
         }
-        
+
+
+
         // Reset history stack with the loaded state
         setHistory([{ nodes: loadedNodes, edges: loadedEdges }]);
         setHistoryIndex(0);
@@ -163,7 +176,9 @@ export default function SystemDesignPlayground({
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   // Undo/Redo History states
-  const [history, setHistory] = useState<{ nodes: NodeData[]; edges: EdgeData[] }[]>(() => [{ nodes, edges }]);
+  const [history, setHistory] = useState<
+    { nodes: NodeData[]; edges: EdgeData[] }[]
+  >(() => [{ nodes, edges }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   // Resizing state
@@ -187,7 +202,12 @@ export default function SystemDesignPlayground({
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editTag, setEditTag] = useState("");
-  const editingNodeOrigDimsRef = useRef<{ w: number; h: number; x: number; y: number } | null>(null);
+  const editingNodeOrigDimsRef = useRef<{
+    w: number;
+    h: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // DOM Refs
   const svgRef = useRef<SVGSVGElement>(null);
@@ -199,7 +219,7 @@ export default function SystemDesignPlayground({
     nodes.reduce((max, node) => {
       const num = parseInt(node.id.replace(/\D/g, ""), 10);
       return isNaN(num) ? max : Math.max(max, num);
-    }, 0)
+    }, 0),
   );
 
   // Refs for tracking interactive states inside mouse/keyboard listener closures
@@ -218,7 +238,9 @@ export default function SystemDesignPlayground({
   const historyIndexRef = useRef(historyIndex);
   const undoRef = useRef<() => void>(() => {});
   const redoRef = useRef<() => void>(() => {});
-  const pushToHistoryRef = useRef<(nextNodes: NodeData[], nextEdges: EdgeData[]) => void>(() => {});
+  const pushToHistoryRef = useRef<
+    (nextNodes: NodeData[], nextEdges: EdgeData[]) => void
+  >(() => {});
   const draggingNodeIdRef = useRef(draggingNodeId);
 
   const pushToHistory = (nextNodes: NodeData[], nextEdges: EdgeData[]) => {
@@ -277,8 +299,6 @@ export default function SystemDesignPlayground({
     draggingNodeIdRef.current = draggingNodeId;
   });
 
-
-
   // Save nodes and edges to sessionStorage
   useEffect(() => {
     if (nodes.length > 0 || edges.length > 0) {
@@ -288,6 +308,35 @@ export default function SystemDesignPlayground({
       );
     }
   }, [nodes, edges, question.id]);
+
+  const handleLoadSample = useCallback(() => {
+    const preset = PRESET_DIAGRAMS[question.id];
+    if (!preset) return;
+
+    if (nodes.length > 0) {
+      const confirm = window.confirm(
+        "Loading a sample design will overwrite your current drawing. Do you want to proceed?",
+      );
+      if (!confirm) return;
+    }
+
+    const loadedNodes = preset.nodes.map((n) => {
+      const dims = computeNodeDimensions(n.type, n.label, n.tag);
+      return { ...n, w: dims.w, h: dims.h } as NodeData;
+    });
+
+    setNodes(loadedNodes);
+    setEdges(preset.edges);
+
+    const maxId = loadedNodes.reduce((max, node) => {
+      const num = parseInt(node.id.replace(/\D/g, ""), 10);
+      return isNaN(num) ? max : Math.max(max, num);
+    }, 0);
+    nodeCounterRef.current = maxId;
+
+    setHistory([{ nodes: loadedNodes, edges: preset.edges }]);
+    setHistoryIndex(0);
+  }, [question.id, nodes]);
 
   const handleCancelEdge = useCallback(() => {
     setPendingEdge(null);
@@ -477,39 +526,47 @@ export default function SystemDesignPlayground({
       setEditingNodeId(node.id);
       setEditName(node.label);
       setEditTag(node.tag || "");
-      editingNodeOrigDimsRef.current = { w: node.w, h: node.h, x: node.x, y: node.y };
+      editingNodeOrigDimsRef.current = {
+        w: node.w,
+        h: node.h,
+        x: node.x,
+        y: node.y,
+      };
     },
     [],
   );
 
-  const adjustNodeHeightForEditing = useCallback((nodeId: string, name: string, tag: string) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === nodeId) {
-          const isNote = n.type === "note";
-          const maxChars = Math.max(10, Math.floor((n.w - 16) / 6.5));
-          const linesCount = wrapText(name, maxChars).length;
+  const adjustNodeHeightForEditing = useCallback(
+    (nodeId: string, name: string, tag: string) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === nodeId) {
+            const isNote = n.type === "note";
+            const maxChars = Math.max(10, Math.floor((n.w - 16) / 6.5));
+            const linesCount = wrapText(name, maxChars).length;
 
-          const baseHeight = isNote ? 20 : 32;
-          const minHForText = Math.max(48, baseHeight + linesCount * 14);
+            const baseHeight = isNote ? 20 : 32;
+            const minHForText = Math.max(48, baseHeight + linesCount * 14);
 
-          // Get the original height before editing started, to make sure we don't shrink below it
-          const origH = editingNodeOrigDimsRef.current?.h ?? n.h;
-          const nextH = Math.max(origH, minHForText);
+            // Get the original height before editing started, to make sure we don't shrink below it
+            const origH = editingNodeOrigDimsRef.current?.h ?? n.h;
+            const nextH = Math.max(origH, minHForText);
 
-          if (nextH !== n.h) {
-            const actualDy = nextH - n.h;
-            return {
-              ...n,
-              h: nextH,
-              y: n.y + actualDy / 2,
-            };
+            if (nextH !== n.h) {
+              const actualDy = nextH - n.h;
+              return {
+                ...n,
+                h: nextH,
+                y: n.y + actualDy / 2,
+              };
+            }
           }
-        }
-        return n;
-      })
-    );
-  }, []);
+          return n;
+        }),
+      );
+    },
+    [],
+  );
 
   const handleEditNameChange = useCallback(
     (val: string) => {
@@ -518,7 +575,7 @@ export default function SystemDesignPlayground({
         adjustNodeHeightForEditing(editingNodeId, val, editTag);
       }
     },
-    [editingNodeId, editTag, adjustNodeHeightForEditing]
+    [editingNodeId, editTag, adjustNodeHeightForEditing],
   );
 
   const handleEditTagChange = useCallback(
@@ -528,7 +585,7 @@ export default function SystemDesignPlayground({
         adjustNodeHeightForEditing(editingNodeId, editName, val);
       }
     },
-    [editingNodeId, editName, adjustNodeHeightForEditing]
+    [editingNodeId, editName, adjustNodeHeightForEditing],
   );
 
   const handleEdgeDoubleClick = useCallback(
@@ -614,7 +671,7 @@ export default function SystemDesignPlayground({
                 };
               }
               return n;
-            })
+            }),
           );
         }
         setEditingNodeId(null);
@@ -782,7 +839,9 @@ export default function SystemDesignPlayground({
       if (e.key === "Delete" || e.key === "Backspace") {
         const selected = selectedNodeIdsRef.current;
         if (selected.length > 0) {
-          const nextNodes = nodesRef.current.filter((n) => !selected.includes(n.id));
+          const nextNodes = nodesRef.current.filter(
+            (n) => !selected.includes(n.id),
+          );
           const nextEdges = edgesRef.current.filter(
             (ed) => !selected.includes(ed.from) && !selected.includes(ed.to),
           );
@@ -839,7 +898,8 @@ export default function SystemDesignPlayground({
 
   // Drag, Pan, Resizing, and Marquee Selection listeners
   useEffect(() => {
-    if (!draggingNodeId && !resizingNodeId && !isPanning && !selectionStart) return;
+    if (!draggingNodeId && !resizingNodeId && !isPanning && !selectionStart)
+      return;
 
     const handleMouseMove = (e: MouseEvent) => {
       if (isPanning) {
@@ -1016,12 +1076,14 @@ export default function SystemDesignPlayground({
     if (status !== "authenticated") {
       setShowAuthRequiredModal(true);
     } else {
-      onSubmit(getJSON());
+      onSubmit?.(getJSON());
     }
   }, [status, onSubmit, getJSON]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-130px)] min-h-[600px] w-full rounded-card border border-line bg-surface/30 backdrop-blur overflow-hidden shadow-soft select-none text-fg">
+    <div
+      className={`flex flex-col ${isInterviewMode ? "h-[500px] lg:h-[calc(100vh-160px)] min-h-[450px]" : "h-[calc(100vh-130px)] min-h-[600px]"} w-full rounded-card border border-line bg-surface/30 backdrop-blur overflow-hidden shadow-soft select-none text-fg`}
+    >
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between border-b border-line px-5 py-4 shrink-0 bg-surface/50">
         <div className="flex flex-col min-w-0 pr-8 text-left">
@@ -1039,24 +1101,26 @@ export default function SystemDesignPlayground({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted bg-surface/50 hover:border-fg hover:text-fg transition-all"
-          >
-            Back to Questions
-          </button>
-          <button
-            type="button"
-            disabled={nodes.length === 0}
-            onClick={handleSubmit}
-            className="flex items-center justify-center gap-1.5 rounded-full bg-accent px-5 py-2 font-medium text-accent-contrast shadow-lift font-mono uppercase text-[10px] tracking-wider font-bold transition-all hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Begin Interview
-            <Play className="h-3 w-3 fill-current" />
-          </button>
-        </div>
+        {!isInterviewMode && (
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted bg-surface/50 hover:border-fg hover:text-fg transition-all"
+            >
+              Back to Questions
+            </button>
+            <button
+              type="button"
+              disabled={nodes.length === 0}
+              onClick={handleSubmit}
+              className="flex items-center justify-center gap-1.5 rounded-full bg-accent px-5 py-2 font-medium text-accent-contrast shadow-lift font-mono uppercase text-[10px] tracking-wider font-bold transition-all hover:-translate-y-0.5 hover:opacity-95 disabled:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Begin Interview
+              <Play className="h-3 w-3 fill-current" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Floating Mode Toolbar */}
@@ -1235,7 +1299,8 @@ export default function SystemDesignPlayground({
                 Clear Playground?
               </h3>
               <p className="mt-2 text-[10px] text-muted leading-relaxed">
-                This will permanently delete all components and connection lines on the canvas.
+                This will permanently delete all components and connection lines
+                on the canvas.
               </p>
               <div className="mt-5 flex items-center gap-2.5">
                 <button
@@ -1278,15 +1343,20 @@ export default function SystemDesignPlayground({
                 Sign in to Start Interview
               </h3>
               <p className="mt-2.5 text-xs text-muted leading-relaxed">
-                To start your AI-powered system design interview and get evaluated, please log in or create an account. We will preserve your current diagram so you can continue immediately.
+                To start your AI-powered system design interview and get
+                evaluated, please log in or create an account. We will preserve
+                your current diagram so you can continue immediately.
               </p>
-              
+
               <div className="mt-6 flex flex-col gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     if (typeof window !== "undefined") {
-                      sessionStorage.setItem("practice.auto_start_interview", "true");
+                      sessionStorage.setItem(
+                        "practice.auto_start_interview",
+                        "true",
+                      );
                     }
                     router.push("/login");
                   }}
@@ -1299,7 +1369,10 @@ export default function SystemDesignPlayground({
                   type="button"
                   onClick={() => {
                     if (typeof window !== "undefined") {
-                      sessionStorage.setItem("practice.auto_start_interview", "true");
+                      sessionStorage.setItem(
+                        "practice.auto_start_interview",
+                        "true",
+                      );
                     }
                     router.push("/signup");
                   }}

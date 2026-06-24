@@ -1,4 +1,4 @@
-import { getAuthClient } from "../auth/authClient";
+import { authClient, getAuthClient } from "../auth/authClient";
 import type {
   StartResponse,
   AnswerResponse,
@@ -7,6 +7,7 @@ import type {
   InterviewHistoryItem,
   SessionState,
 } from "@/lib/types";
+import { useAuth } from "../auth/AuthProvider";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -21,8 +22,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
   const data = await res.json();
-  if (!res.ok)
+  if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new Event("auth-expired"));
+    }
     throw new Error(data.message || data.error || "API request failed");
+  }
+
   return data;
 }
 
@@ -89,7 +95,9 @@ export const interviewClient = {
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.message || data.error || "Failed to transcribe audio");
+      throw new Error(
+        data.message || data.error || "Failed to transcribe audio",
+      );
     }
     return data;
   },
@@ -98,5 +106,3 @@ export const interviewClient = {
     return request<{ token: string }>("/interview/token");
   },
 };
-
-

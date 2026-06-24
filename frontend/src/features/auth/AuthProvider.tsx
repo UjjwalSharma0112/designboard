@@ -10,11 +10,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  getAuthClient,
-  type AuthUser,
-  type SignUpInput,
-} from "./authClient";
+import { getAuthClient, type AuthUser, type SignUpInput } from "./authClient";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -32,7 +28,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
+  useEffect(() => {
+    const handleAuthExpired = async () => {
+      await getAuthClient().signOut();
+      setUser(null);
+      setStatus("unauthenticated");
+      window.location.href = "/login";
+    };
 
+    window.addEventListener("auth-expired", handleAuthExpired);
+
+    return () => window.removeEventListener("auth-expired", handleAuthExpired);
+  }, []);
   useEffect(() => {
     let active = true;
     getAuthClient()

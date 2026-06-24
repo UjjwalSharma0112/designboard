@@ -13,6 +13,9 @@ import InterviewProgress from "./InterviewProgress";
 import ReportView from "@/features/report/components/ReportView";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useToast } from "@/features/toast/ToastProvider";
+import SystemDesignPlayground from "./SystemDesignPlayground";
+import { SYSTEM_DESIGN_QUESTIONS } from "./SetupPanel";
+import type { Difficulty } from "@/lib/types";
 
 type Phase = "INTRO" | "INTERVIEW" | "REPORT";
 
@@ -30,6 +33,8 @@ export default function InterviewRunner() {
   const [isThinking, setIsThinking] = useState(false);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [report, setReport] = useState<FeedbackResponse | null>(null);
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
+  const [activeDifficulty, setActiveDifficulty] = useState<Difficulty | null>(null);
 
   function getCleanErrorMessage(err: unknown): string {
     const msg = err instanceof Error ? err.message : String(err);
@@ -253,6 +258,18 @@ export default function InterviewRunner() {
 
         setSessionId(state.sessionId);
         setTotalQuestions(state.questions.length);
+        setActiveTopic(state.topic);
+        setActiveDifficulty(state.difficulty);
+
+        // Restore diagram to sessionStorage so SystemDesignPlayground can load it
+        const matchingQuestion = SYSTEM_DESIGN_QUESTIONS.find(q => q.title === state.topic);
+        if (matchingQuestion && state.interviewContext) {
+          try {
+            sessionStorage.setItem(`playground_diagram_${matchingQuestion.id}`, state.interviewContext);
+          } catch (e) {
+            console.error("Failed to restore diagram to sessionStorage", e);
+          }
+        }
 
         if (state.phase === "END") {
           // If session has ended, load report
@@ -326,6 +343,10 @@ export default function InterviewRunner() {
             id: n.id,
             type: n.type,
             label: n.label,
+            x: n.x,
+            y: n.y,
+            w: n.w,
+            h: n.h,
             tag: n.tag,
             data: { label: n.label, type: n.type, tag: n.tag },
           }))
@@ -369,7 +390,19 @@ export default function InterviewRunner() {
       const res = await interviewClient.start(config);
       setSessionId(res.sessionId);
       setTotalQuestions(res.totalQuestions);
+      setActiveTopic(config.topic);
+      setActiveDifficulty(config.difficulty);
       setPhase("INTERVIEW");
+
+      // Save diagram to sessionStorage so SystemDesignPlayground can load it
+      const matchingQuestion = SYSTEM_DESIGN_QUESTIONS.find(q => q.title === config.topic);
+      if (matchingQuestion && config.interviewContext) {
+        try {
+          sessionStorage.setItem(`playground_diagram_${matchingQuestion.id}`, config.interviewContext);
+        } catch (e) {
+          console.error("Failed to save diagram to sessionStorage", e);
+        }
+      }
       
       if (typeof window !== "undefined") {
         sessionStorage.setItem("interview_room.active_session_id", res.sessionId);
@@ -493,6 +526,10 @@ export default function InterviewRunner() {
     );
   }
 
+  const activeQuestion = SYSTEM_DESIGN_QUESTIONS.find(q => q.title === activeTopic);
+
+  const isQuickStart = typeof window !== "undefined" && sessionStorage.getItem("practice.is_quick_start") === "true";
+
   return (
     <div className="mx-auto flex min-h-[80vh] w-full max-w-2xl flex-col gap-8 py-6">
       <InterviewProgress
@@ -502,12 +539,15 @@ export default function InterviewRunner() {
           stopAudio();
           if (typeof window !== "undefined") {
             sessionStorage.removeItem("interview_room.active_session_id");
+            sessionStorage.removeItem("practice.is_quick_start");
           }
           setPhase("INTRO");
           setSessionId(null);
           setCurrentQuestion(null);
           setTranscript([]);
           setReport(null);
+          setActiveTopic(null);
+          setActiveDifficulty(null);
         }}
       />
 
